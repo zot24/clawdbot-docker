@@ -125,7 +125,7 @@ echo "  WebChat UI: http://localhost:${CLAWDBOT_GATEWAY_PORT:-18789}/chat"
 # Inject auth token into WebChat UI so it can connect to the gateway
 # The WebChat stores settings (including token) in localStorage under a specific key
 # We inject a script that pre-populates the token before the app loads
-WEBCHAT_INDEX="/app/dist/ui/chat/index.html"
+WEBCHAT_INDEX="/app/dist/control-ui/index.html"
 if [ -f "${WEBCHAT_INDEX}" ]; then
     # Inject script that sets the token in localStorage before the app initializes
     # The app reads settings from localStorage and uses the token for WebSocket auth
