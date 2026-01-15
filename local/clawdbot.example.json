@@ -1,0 +1,66 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 18789,
+    "auth": {
+      "type": "apiKey",
+      "keys": ["dev-key-change-me"]
+    },
+    "pairing": {
+      "enabled": true,
+      "codeExpiry": 300
+    },
+    "sandbox": {
+      "enabled": false
+    }
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "pairing"
+    },
+    "telegram": {
+      "enabled": false,
+      "botToken": "${TELEGRAM_BOT_TOKEN}",
+      "dmPolicy": "pairing",
+      "streamMode": "partial"
+    },
+    "discord": {
+      "enabled": false,
+      "botToken": "${DISCORD_BOT_TOKEN}",
+      "dmPolicy": "pairing"
+    },
+    "slack": {
+      "enabled": false,
+      "appToken": "${SLACK_APP_TOKEN}",
+      "botToken": "${SLACK_BOT_TOKEN}"
+    }
+  },
+  "providers": {
+    "anthropic": {
+      "apiKey": "${ANTHROPIC_API_KEY}"
+    },
+    "openai": {
+      "apiKey": "${OPENAI_API_KEY}"
+    },
+    "openrouter": {
+      "apiKey": "${OPENROUTER_API_KEY}"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "claude-sonnet-4-20250514",
+      "workspace": "~/clawd",
+      "timeoutSeconds": 600,
+      "memorySearch": {
+        "enabled": true,
+        "provider": "remote"
+      }
+    }
+  },
+  "logging": {
+    "level": "debug",
+    "file": "/tmp/clawdbot/dev.log"
+  }
+}

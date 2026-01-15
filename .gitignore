@@ -1,0 +1,4 @@
+# Local development configs (contains secrets)
+local/clawdbot.json
+local/.env
+local/*.local.json
