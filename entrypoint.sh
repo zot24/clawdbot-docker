@@ -25,7 +25,6 @@ generate_config() {
 {
   "gateway": {
     "mode": "local",
-    "bind": "${CLAWDBOT_BIND:-0.0.0.0}",
     "port": ${CLAWDBOT_GATEWAY_PORT:-18789}
   },
   "webchat": {
@@ -113,4 +112,4 @@ echo "  WebChat port: ${CLAWDBOT_WEBCHAT_PORT:-18790}"
 
 # Start the gateway
 cd /app
-exec node dist/index.js "$@"
+exec node dist/index.js gateway --allow-unconfigured
