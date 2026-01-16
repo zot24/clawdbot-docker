@@ -15,9 +15,19 @@ generate_config() {
     # Build Telegram configuration
     local TELEGRAM_ENABLED="false"
     local TELEGRAM_TOKEN=""
+    local TELEGRAM_DM_POLICY="${CLAWDBOT_DM_POLICY:-pairing}"
+    local TELEGRAM_ALLOW_FROM=""
     if [ -n "${TELEGRAM_BOT_TOKEN}" ]; then
         TELEGRAM_ENABLED="true"
         TELEGRAM_TOKEN="${TELEGRAM_BOT_TOKEN}"
+    fi
+
+    # Build allowFrom line if TELEGRAM_ALLOWED_USERS is set (comma-separated user IDs)
+    local TELEGRAM_ALLOW_LINE=""
+    if [ -n "${TELEGRAM_ALLOWED_USERS}" ]; then
+        # Convert comma-separated IDs to JSON array
+        local ALLOW_ARRAY=$(echo "${TELEGRAM_ALLOWED_USERS}" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/')
+        TELEGRAM_ALLOW_LINE=",\"allowFrom\": [${ALLOW_ARRAY}]"
     fi
 
     # Generate auth token if not provided (exported for use in WebChat injection)
@@ -27,6 +37,45 @@ generate_config() {
     if [[ ! "${AUTH_TOKEN}" =~ ^[a-zA-Z0-9]+$ ]]; then
         echo "ERROR: Auth token must be alphanumeric only. Invalid characters found."
         exit 1
+    fi
+
+    # Determine model configuration based on available API keys
+    local MODEL_CONFIG=""
+    local MODELS_SECTION=""
+
+    if [ -n "${MINIMAX_API_KEY}" ]; then
+        # Use MiniMax as primary model
+        MODEL_CONFIG='"model": { "primary": "minimax/MiniMax-M2.1" }'
+        MODELS_SECTION=',
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "minimax": {
+        "baseUrl": "https://api.minimax.io/anthropic",
+        "apiKey": "'"${MINIMAX_API_KEY}"'",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "MiniMax-M2.1",
+            "name": "MiniMax M2.1",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": {
+              "input": 15,
+              "output": 60,
+              "cacheRead": 2,
+              "cacheWrite": 10
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  }'
+    else
+        # Default to Anthropic
+        MODEL_CONFIG='"model": "anthropic/claude-opus-4-5"'
     fi
 
     # Write configuration file
@@ -47,8 +96,8 @@ generate_config() {
     "telegram": {
       "enabled": ${TELEGRAM_ENABLED},
       "botToken": "${TELEGRAM_TOKEN}",
-      "dmPolicy": "pairing",
-      "streamMode": "partial"
+      "dmPolicy": "${TELEGRAM_DM_POLICY}",
+      "streamMode": "partial"${TELEGRAM_ALLOW_LINE}
     },
     "whatsapp": {
       "enabled": false
@@ -65,6 +114,7 @@ generate_config() {
   },
   "agents": {
     "defaults": {
+      ${MODEL_CONFIG},
       "workspace": "${WORKSPACE}",
       "timeoutSeconds": 600,
       "memorySearch": {
@@ -74,7 +124,7 @@ generate_config() {
   },
   "skills": {
     "entries": {}
-  }
+  }${MODELS_SECTION}
 }
 EOF
     echo "Configuration generated at ${CONFIG_FILE}"
@@ -94,10 +144,14 @@ else
     echo "  3. Set TELEGRAM_BOT_TOKEN environment variable"
 fi
 
-# Check for Anthropic API key
-if [ -z "${ANTHROPIC_API_KEY}" ]; then
-    echo "WARNING: No ANTHROPIC_API_KEY set. Claude models will not work."
-    echo "Set ANTHROPIC_API_KEY environment variable to use Claude."
+# Check for API keys
+if [ -n "${MINIMAX_API_KEY}" ]; then
+    echo "MiniMax API key configured - using MiniMax M2.1 model"
+elif [ -n "${ANTHROPIC_API_KEY}" ]; then
+    echo "Anthropic API key configured - using Claude models"
+else
+    echo "WARNING: No MINIMAX_API_KEY or ANTHROPIC_API_KEY set. Models will not work."
+    echo "Set MINIMAX_API_KEY or ANTHROPIC_API_KEY environment variable."
 fi
 
 # Create default workspace files if they don't exist
