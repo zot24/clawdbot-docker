@@ -4,10 +4,34 @@
 FROM node:22-bookworm-slim
 
 # Install system dependencies
+# - git, curl, ca-certificates: Build essentials
+# - ffmpeg: Audio/voice processing for voice messages
+# - imagemagick: Image manipulation and processing
+# - Playwright dependencies: Chromium browser automation
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     ca-certificates \
+    ffmpeg \
+    imagemagick \
+    # Playwright/Chromium dependencies
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libatspi2.0-0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install pnpm
@@ -28,6 +52,10 @@ RUN pnpm build
 
 # Build the UI assets (Control Panel, WebChat)
 RUN pnpm ui:build
+
+# Install Playwright Chromium for browser automation
+# This enables the browser tool for web scraping/automation
+RUN npx playwright install chromium
 
 # Create data directories
 RUN mkdir -p /root/.clawdbot /root/clawd
