@@ -315,8 +315,52 @@ EOF
     echo "Configuration generated at ${CONFIG_FILE}"
 }
 
-# Always regenerate config to pick up env var changes
-generate_config
+# Check if user provided a config file (mounted volume)
+# If config exists and CLAWDBOT_REGEN_CONFIG is not set, use existing config
+if [ -f "${CONFIG_FILE}" ] && [ "${CLAWDBOT_REGEN_CONFIG}" != "true" ]; then
+    echo "Using existing configuration at ${CONFIG_FILE}"
+    echo "(Set CLAWDBOT_REGEN_CONFIG=true to regenerate from env vars)"
+
+    # Generate auth token if not provided
+    AUTH_TOKEN="${CLAWDBOT_GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)}"
+
+    # Inject sensitive values from env vars into the config
+    # This keeps secrets in env vars while allowing structural config in JSON
+    node -e "
+      const fs = require('fs');
+      const config = JSON.parse(fs.readFileSync('${CONFIG_FILE}', 'utf8'));
+
+      // Inject gateway auth token
+      if (config.gateway?.auth) {
+        config.gateway.auth.token = '${AUTH_TOKEN}';
+      }
+
+      // Inject channel tokens from env vars
+      if (config.channels?.telegram?.enabled && process.env.TELEGRAM_BOT_TOKEN) {
+        config.channels.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
+      }
+      if (config.channels?.discord?.enabled && process.env.DISCORD_BOT_TOKEN) {
+        config.channels.discord.botToken = process.env.DISCORD_BOT_TOKEN;
+      }
+      if (config.channels?.slack?.enabled) {
+        if (process.env.SLACK_APP_TOKEN) config.channels.slack.appToken = process.env.SLACK_APP_TOKEN;
+        if (process.env.SLACK_BOT_TOKEN) config.channels.slack.botToken = process.env.SLACK_BOT_TOKEN;
+      }
+      if (config.channels?.msteams?.enabled) {
+        if (process.env.MSTEAMS_APP_ID) config.channels.msteams.appId = process.env.MSTEAMS_APP_ID;
+        if (process.env.MSTEAMS_APP_PASSWORD) config.channels.msteams.appPassword = process.env.MSTEAMS_APP_PASSWORD;
+      }
+      if (config.channels?.signal?.enabled && process.env.SIGNAL_NUMBER) {
+        config.channels.signal.number = process.env.SIGNAL_NUMBER;
+      }
+
+      fs.writeFileSync('${CONFIG_FILE}', JSON.stringify(config, null, 2));
+      console.log('Injected sensitive values from environment variables');
+    "
+else
+    # Generate config from environment variables
+    generate_config
+fi
 
 # Report enabled channels
 echo ""
