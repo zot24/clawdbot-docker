@@ -54,6 +54,8 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    # Cron for scheduled tasks (release monitoring)
+    cron \
     # X11 for headless browser (optional, for VNC debugging)
     xvfb \
     && rm -rf /var/lib/apt/lists/*
@@ -106,11 +108,26 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 # Create data directories
-RUN mkdir -p /root/.clawdbot /root/clawd
+RUN mkdir -p /root/.clawdbot /root/clawd /root/clawd/scripts
+
+# Copy release checker script
+COPY scripts/check-releases.sh /root/clawd/scripts/check-releases.sh
+RUN chmod +x /root/clawd/scripts/check-releases.sh
+
+# Setup cron for release monitoring
+RUN echo "0 */6 * * * /root/clawd/scripts/check-releases.sh >> /var/log/clawdbot-releases.log 2>&1" > /etc/cron.d/clawdbot-releases && \
+    chmod 0644 /etc/cron.d/clawdbot-releases && \
+    touch /var/log/clawdbot-releases.log
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# Start cron in background for release monitoring
+RUN echo "0 */6 * * * /root/clawd/scripts/check-releases.sh >> /var/log/clawdbot-releases.log 2>&1" > /etc/cron.d/clawdbot-releases && \
+    chmod 0644 /etc/cron.d/clawdbot-releases && \
+    touch /var/log/clawdbot-releases.log && \
+    crontab /etc/cron.d/clawdbot-releases
 
 # Expose ports
 # 18789: Gateway (HTTP + WebSocket + WebChat at /chat)

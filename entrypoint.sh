@@ -550,6 +550,12 @@ echo "Starting Clawdbot..."
 echo "  Gateway port: ${CLAWDBOT_GATEWAY_PORT:-18789}"
 echo "  WebChat UI: http://localhost:${CLAWDBOT_GATEWAY_PORT:-18789}/chat"
 
+# Start cron for release monitoring (runs in background)
+if [ -f "/etc/cron.d/clawdbot-releases" ]; then
+    echo "Starting cron for release monitoring..."
+    cron
+fi
+
 # Display gateway token info
 if [ -n "${CLAWDBOT_GATEWAY_TOKEN}" ]; then
     echo "  Gateway token: (from CLAWDBOT_GATEWAY_TOKEN env var)"
