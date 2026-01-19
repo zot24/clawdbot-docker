@@ -37,6 +37,9 @@ jobs:
     with:
       clawdbot_version: ${{ needs.check-release.outputs.version }}
     secrets: inherit
+    permissions:
+      contents: read
+      packages: write
 
   update-cache:
     needs: [check-release, build]
