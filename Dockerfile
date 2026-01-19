@@ -1,19 +1,41 @@
 # Clawdbot Docker Image
-# Builds Clawdbot from source for use with Umbrel and other self-hosted platforms
+# Multi-stage build for optimal caching and build times
+# Stage 1: Heavy dependencies (cached, rarely changes)
+# Stage 2: Build clawdbot (rebuilds on code changes)
+# Stage 3: Runtime (final image with all tools)
 
-FROM node:22-bookworm-slim
+# =============================================================================
+# Stage 1: Dependencies
+# Install all system packages and global tools that rarely change
+# =============================================================================
+FROM node:22-bookworm-slim AS deps
 
 # Install system dependencies
-# - git, curl, ca-certificates: Build essentials
-# - ffmpeg: Audio/voice processing for voice messages
-# - imagemagick: Image manipulation and processing
-# - Playwright dependencies: Chromium browser automation
+# - Build essentials: git, curl, ca-certificates, wget
+# - Media processing: ffmpeg, imagemagick
+# - Browser automation: chromium and dependencies
+# - Python tools: python3, pip
+# - Utilities: gh (GitHub CLI), zip, unzip, tar
 RUN apt-get update && apt-get install -y \
+    # Build essentials
     git \
     curl \
+    wget \
     ca-certificates \
+    # GitHub CLI
+    gh \
+    # Media processing
     ffmpeg \
     imagemagick \
+    # Python (for uvx/MCP tools)
+    python3 \
+    python3-pip \
+    python3-venv \
+    # Compression utilities
+    zip \
+    unzip \
+    tar \
+    gzip \
     # Playwright/Chromium dependencies
     libnss3 \
     libnspr4 \
@@ -32,12 +54,31 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
+    # X11 for headless browser (optional, for VNC debugging)
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Set working directory
+# Install Node.js global tools
+RUN npm install -g mcporter
+
+# Install Python tools (uv/uvx for running Python MCP tools)
+RUN pip3 install --no-cache-dir --break-system-packages uv
+
+# Set PATH for Python tools
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Install Playwright Chromium browser
+RUN npx -y playwright@latest install chromium
+
+# =============================================================================
+# Stage 2: Builder
+# Clone and build Clawdbot (rebuilds when CLAWDBOT_VERSION changes)
+# =============================================================================
+FROM deps AS builder
+
 WORKDIR /app
 
 # Clone Clawdbot repository
@@ -53,10 +94,16 @@ RUN pnpm build
 # Build the UI assets (Control Panel, WebChat)
 RUN pnpm ui:build
 
-# Install Playwright Chromium for browser automation
-# This enables the browser tool for web scraping/automation
-# playwright-core is already installed, just need the browser binary
-RUN npx -y playwright@latest install chromium
+# =============================================================================
+# Stage 3: Runtime
+# Final image with all tools and built application
+# =============================================================================
+FROM deps AS runtime
+
+WORKDIR /app
+
+# Copy built application from builder
+COPY --from=builder /app /app
 
 # Create data directories
 RUN mkdir -p /root/.clawdbot /root/clawd

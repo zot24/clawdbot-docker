@@ -4,9 +4,35 @@ set -e
 CONFIG_DIR="${CLAWDBOT_DATA_DIR:-/root/.clawdbot}"
 CONFIG_FILE="${CONFIG_DIR}/clawdbot.json"
 WORKSPACE="${CLAWDBOT_WORKSPACE:-/root/clawd}"
+TOKEN_FILE="${CONFIG_DIR}/.gateway_token"
+
+# Get or generate gateway token with persistence
+# Priority: 1) CLAWDBOT_GATEWAY_TOKEN env var, 2) Persisted token file, 3) Generate new
+get_or_generate_token() {
+    if [ -n "${CLAWDBOT_GATEWAY_TOKEN}" ]; then
+        # User provided token via env var - use it (don't persist, user controls it)
+        echo "${CLAWDBOT_GATEWAY_TOKEN}"
+    elif [ -f "${TOKEN_FILE}" ]; then
+        # Use persisted token from previous run
+        cat "${TOKEN_FILE}"
+    else
+        # Generate new token and persist it
+        local NEW_TOKEN=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
+        echo "${NEW_TOKEN}" > "${TOKEN_FILE}"
+        chmod 600 "${TOKEN_FILE}"
+        echo "${NEW_TOKEN}"
+    fi
+}
 
 # Create directories if they don't exist
 mkdir -p "${CONFIG_DIR}" "${WORKSPACE}" "${WORKSPACE}/memory" "${WORKSPACE}/skills"
+
+# Clean up stale session locks from unclean shutdowns
+# These locks are process-based and won't be valid after container restart
+if [ -d "${CONFIG_DIR}/agents" ]; then
+    find "${CONFIG_DIR}/agents" -name "*.lock" -delete 2>/dev/null && \
+        echo "Cleaned up stale session locks"
+fi
 
 # Create WhatsApp credentials directory
 mkdir -p "${CONFIG_DIR}/credentials/whatsapp/default"
@@ -104,8 +130,8 @@ generate_config() {
         fi
     fi
 
-    # Generate auth token if not provided (exported for use in WebChat injection)
-    AUTH_TOKEN="${CLAWDBOT_GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)}"
+    # Get or generate auth token with persistence
+    AUTH_TOKEN=$(get_or_generate_token)
 
     # Validate token is alphanumeric only (security: prevents injection in HTML/JS)
     if [[ ! "${AUTH_TOKEN}" =~ ^[a-zA-Z0-9]+$ ]]; then
@@ -321,8 +347,8 @@ if [ -f "${CONFIG_FILE}" ] && [ "${CLAWDBOT_REGEN_CONFIG}" != "true" ]; then
     echo "Using existing configuration at ${CONFIG_FILE}"
     echo "(Set CLAWDBOT_REGEN_CONFIG=true to regenerate from env vars)"
 
-    # Generate auth token if not provided
-    AUTH_TOKEN="${CLAWDBOT_GATEWAY_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)}"
+    # Get or generate auth token with persistence
+    AUTH_TOKEN=$(get_or_generate_token)
 
     # Inject sensitive values from env vars into the config
     # This keeps secrets in env vars while allowing structural config in JSON
@@ -339,6 +365,10 @@ if [ -f "${CONFIG_FILE}" ] && [ "${CLAWDBOT_REGEN_CONFIG}" != "true" ]; then
       if (config.channels?.telegram?.enabled && process.env.TELEGRAM_BOT_TOKEN) {
         config.channels.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
       }
+      if (config.channels?.telegram && process.env.TELEGRAM_ALLOWED_USERS) {
+        config.channels.telegram.allowFrom = process.env.TELEGRAM_ALLOWED_USERS.split(',').map(s => s.trim());
+        config.channels.telegram.dmPolicy = 'allowlist';
+      }
       if (config.channels?.discord?.enabled && process.env.DISCORD_BOT_TOKEN) {
         config.channels.discord.botToken = process.env.DISCORD_BOT_TOKEN;
       }
@@ -352,6 +382,27 @@ if [ -f "${CONFIG_FILE}" ] && [ "${CLAWDBOT_REGEN_CONFIG}" != "true" ]; then
       }
       if (config.channels?.signal?.enabled && process.env.SIGNAL_NUMBER) {
         config.channels.signal.number = process.env.SIGNAL_NUMBER;
+      }
+      if (config.channels?.whatsapp && process.env.WHATSAPP_ALLOWED_NUMBERS) {
+        config.channels.whatsapp.allowFrom = process.env.WHATSAPP_ALLOWED_NUMBERS.split(',').map(s => s.trim());
+        config.channels.whatsapp.dmPolicy = 'allowlist';
+      }
+
+      // Inject LLM provider API keys
+      if (config.models?.providers) {
+        const providers = config.models.providers;
+        if (providers.minimax && process.env.MINIMAX_API_KEY) {
+          providers.minimax.apiKey = process.env.MINIMAX_API_KEY;
+        }
+        if (providers.moonshot && process.env.MOONSHOT_API_KEY) {
+          providers.moonshot.apiKey = process.env.MOONSHOT_API_KEY;
+        }
+        if (providers.glm && process.env.GLM_API_KEY) {
+          providers.glm.apiKey = process.env.GLM_API_KEY;
+        }
+        if (providers.opencode && process.env.OPENCODE_API_KEY) {
+          providers.opencode.apiKey = process.env.OPENCODE_API_KEY;
+        }
       }
 
       fs.writeFileSync('${CONFIG_FILE}', JSON.stringify(config, null, 2));
@@ -498,6 +549,14 @@ fi
 echo "Starting Clawdbot..."
 echo "  Gateway port: ${CLAWDBOT_GATEWAY_PORT:-18789}"
 echo "  WebChat UI: http://localhost:${CLAWDBOT_GATEWAY_PORT:-18789}/chat"
+
+# Display gateway token info
+if [ -n "${CLAWDBOT_GATEWAY_TOKEN}" ]; then
+    echo "  Gateway token: (from CLAWDBOT_GATEWAY_TOKEN env var)"
+elif [ -f "${TOKEN_FILE}" ]; then
+    echo "  Gateway token: $(cat ${TOKEN_FILE})"
+    echo "  Token persisted at: ${TOKEN_FILE}"
+fi
 
 # Inject auth token into WebChat UI so it can connect to the gateway
 # The WebChat stores settings (including token) in localStorage under a specific key

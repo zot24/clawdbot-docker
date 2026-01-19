@@ -1,0 +1,33 @@
+services:
+  clawdbot:
+    build: .
+    ports:
+      - "18789:18789"   # Gateway + WebChat UI
+      - "18790:18790"   # Bridge (mobile nodes)
+    volumes:
+      # Mount config directory - edit config/clawdbot.json without rebuilding
+      - ./config:/root/.clawdbot
+      # Persist workspace data (memory, skills, WhatsApp credentials)
+      - ./workspace:/root/clawd
+    environment:
+      # LLM Provider (at least one required)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+
+      # Channel tokens (injected into config automatically)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
+      - WHATSAPP_ALLOWED_NUMBERS=${WHATSAPP_ALLOWED_NUMBERS:-}
+
+      # Gateway auth token (auto-generated if not set)
+      - CLAWDBOT_GATEWAY_TOKEN=${CLAWDBOT_GATEWAY_TOKEN:-}
+
+      # Set to "true" to regenerate config from env vars
+      # - CLAWDBOT_REGEN_CONFIG=true
+    restart: unless-stopped

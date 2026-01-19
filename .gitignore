@@ -2,3 +2,7 @@
 local/clawdbot.json
 local/.env
 local/*.local.json
+.env
+
+# Docker mounted volume (user config, credentials, session data)
+config/
