@@ -25,8 +25,8 @@ docker run -d \
   -p 18789:18789 \
   -e ANTHROPIC_API_KEY=your-key \
   -e TELEGRAM_BOT_TOKEN=your-bot-token \
-  -v clawdbot-data:/root/.clawdbot \
-  -v clawdbot-workspace:/root/clawd \
+  -v clawdbot-data:/home/clawdbot/.clawdbot \
+  -v clawdbot-workspace:/home/clawdbot/clawd \
   ghcr.io/zot24/clawdbot-docker:latest
 ```
 
@@ -127,8 +127,8 @@ The image auto-selects a model based on available API keys. Override with `CLAWD
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAWDBOT_DATA_DIR` | `/root/.clawdbot` | Config and credentials |
-| `CLAWDBOT_WORKSPACE` | `/root/clawd` | Workspace, memory, skills |
+| `CLAWDBOT_DATA_DIR` | `/home/clawdbot/.clawdbot` | Config and credentials |
+| `CLAWDBOT_WORKSPACE` | `/home/clawdbot/clawd` | Workspace, memory, skills |
 
 ## Ports
 
@@ -137,8 +137,8 @@ The image auto-selects a model based on available API keys. Override with `CLAWD
 
 ## Volumes
 
-- `/root/.clawdbot`: Configuration and credentials
-- `/root/clawd`: Workspace, memory, and skills
+- `/home/clawdbot/.clawdbot`: Configuration and credentials
+- `/home/clawdbot/clawd`: Workspace, memory, and skills
 
 ## Channel Setup
 
@@ -190,9 +190,25 @@ docker run -d \
   -e OPENCODE_BASE_URL=http://host.docker.internal:11434/v1 \
   -e OPENCODE_MODEL=llama3.1 \
   -e TELEGRAM_BOT_TOKEN=your-token \
-  -v clawdbot-data:/root/.clawdbot \
-  -v clawdbot-workspace:/root/clawd \
+  -v clawdbot-data:/home/clawdbot/.clawdbot \
+  -v clawdbot-workspace:/home/clawdbot/clawd \
   ghcr.io/zot24/clawdbot-docker:latest
+```
+
+## Security
+
+This image runs as a dedicated non-root user (`clawdbot`, UID 1000) for enhanced security:
+
+- **Principle of Least Privilege**: The container process has only the permissions it needs, not full root access
+- **Container Escape Mitigation**: If an attacker exploits a vulnerability in the application, they gain limited user privileges rather than root
+- **Host System Protection**: Volume mounts and any potential breakouts are constrained to non-root permissions
+- **Compliance**: Many security frameworks (CIS Docker Benchmark, PCI-DSS) require or recommend non-root containers
+- **Defense in Depth**: Adds another security layer on top of container isolation
+
+The UID/GID can be customized at build time if needed:
+
+```bash
+docker build --build-arg CLAWDBOT_UID=1001 --build-arg CLAWDBOT_GID=1001 -t clawdbot:custom .
 ```
 
 ## Features

@@ -3,12 +3,21 @@
 # Stage 1: Heavy dependencies (cached, rarely changes)
 # Stage 2: Build clawdbot (rebuilds on code changes)
 # Stage 3: Runtime (final image with all tools)
+#
+# Security: Runs as dedicated non-root 'clawdbot' user (UID 1000)
 
 # =============================================================================
 # Stage 1: Dependencies
 # Install all system packages and global tools that rarely change
 # =============================================================================
 FROM node:22-bookworm-slim AS deps
+
+# Create clawdbot user early so we can set up paths consistently
+# Using UID/GID 1000 for compatibility with most host systems
+ARG CLAWDBOT_UID=1000
+ARG CLAWDBOT_GID=1000
+RUN groupadd --gid ${CLAWDBOT_GID} clawdbot \
+    && useradd --uid ${CLAWDBOT_UID} --gid ${CLAWDBOT_GID} --shell /bin/bash --create-home clawdbot
 
 # Install system dependencies
 # - Build essentials: git, curl, ca-certificates, wget
@@ -78,12 +87,19 @@ RUN pip3 install --no-cache-dir --break-system-packages uv openai-whisper
 
 # Install sag (ElevenLabs TTS CLI)
 # https://github.com/steipete/sag
-ENV GOPATH="/root/go"
-ENV PATH="/root/go/bin:/root/.local/bin:${PATH}"
+# Install as clawdbot user to set up paths correctly
+ENV GOPATH="/home/clawdbot/go"
+ENV PATH="/home/clawdbot/go/bin:/home/clawdbot/.local/bin:${PATH}"
+USER clawdbot
 RUN go install github.com/steipete/sag/cmd/sag@latest
 
 # Install Playwright Chromium browser
+# Playwright caches to ~/.cache/ms-playwright by default
+ENV PLAYWRIGHT_BROWSERS_PATH="/home/clawdbot/.cache/ms-playwright"
 RUN npx -y playwright@latest install chromium
+
+# Switch back to root for remaining build steps
+USER root
 
 # =============================================================================
 # Stage 2: Builder
@@ -117,8 +133,13 @@ WORKDIR /app
 # Copy built application from builder
 COPY --from=builder /app /app
 
-# Create data directories
-RUN mkdir -p /root/.clawdbot /root/clawd
+# Create data directories with proper ownership
+# These will typically be mounted as volumes
+RUN mkdir -p /home/clawdbot/.clawdbot /home/clawdbot/clawd \
+    && chown -R clawdbot:clawdbot /home/clawdbot/.clawdbot /home/clawdbot/clawd
+
+# Set ownership of app directory for runtime modifications (e.g., WebChat token injection)
+RUN chown -R clawdbot:clawdbot /app
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
@@ -135,6 +156,10 @@ ENV NODE_ENV=production
 # Health check (gateway serves HTTP on 18789)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:18789/ || exit 1
+
+# Run as non-root user for security
+# See: https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
+USER clawdbot
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gateway"]
