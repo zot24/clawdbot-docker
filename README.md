@@ -182,6 +182,8 @@ The image auto-selects a model based on available API keys. Override with `CLAWD
 
 ## Using Local Models (Ollama)
 
+### On Host Machine
+
 To use Ollama running on your host machine:
 
 ```bash
@@ -195,6 +197,51 @@ docker run -d \
   ghcr.io/zot24/clawdbot-docker:latest
 ```
 
+### On Umbrel (Ollama in Another Container)
+
+When running both Clawdbot and Ollama as Umbrel apps, they communicate via Docker's internal network.
+
+**1. Find the Ollama container name:**
+
+```bash
+docker ps | grep ollama
+```
+
+Look for something like `ollama_server_1` or `ollama_web_1`.
+
+**2. Find the Umbrel network:**
+
+```bash
+docker network ls | grep umbrel
+```
+
+**3. Get Ollama's network details:**
+
+```bash
+docker inspect <ollama-container-name> | grep -A5 Networks
+```
+
+**4. Configure Clawdbot:**
+
+Set these environment variables in your Clawdbot configuration:
+
+```bash
+OPENCODE_BASE_URL=http://<ollama-container-name>:11434/v1
+OPENCODE_MODEL=llama3.1
+```
+
+Replace `<ollama-container-name>` with the actual container name from step 1 (e.g., `ollama_server_1`).
+
+**5. Ensure both containers are on the same network:**
+
+If Clawdbot can't reach Ollama, connect it to Umbrel's network:
+
+```bash
+docker network connect <umbrel-network> <clawdbot-container>
+```
+
+**Tip:** You can also use Ollama's internal IP address instead of the container name if DNS resolution doesn't work.
+
 ## Security
 
 This image runs as a dedicated non-root user (`clawdbot`, UID 1000) for enhanced security:
@@ -205,11 +252,7 @@ This image runs as a dedicated non-root user (`clawdbot`, UID 1000) for enhanced
 - **Compliance**: Many security frameworks (CIS Docker Benchmark, PCI-DSS) require or recommend non-root containers
 - **Defense in Depth**: Adds another security layer on top of container isolation
 
-The UID/GID can be customized at build time if needed:
-
-```bash
-docker build --build-arg CLAWDBOT_UID=1001 --build-arg CLAWDBOT_GID=1001 -t clawdbot:custom .
-```
+The container uses UID/GID 1000, which matches the default user on most Linux systems, making volume permission management straightforward.
 
 ## Features
 

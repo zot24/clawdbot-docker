@@ -12,12 +12,13 @@
 # =============================================================================
 FROM node:22-bookworm-slim AS deps
 
-# Create clawdbot user early so we can set up paths consistently
-# Using UID/GID 1000 for compatibility with most host systems
-ARG CLAWDBOT_UID=1000
-ARG CLAWDBOT_GID=1000
-RUN groupadd --gid ${CLAWDBOT_GID} clawdbot \
-    && useradd --uid ${CLAWDBOT_UID} --gid ${CLAWDBOT_GID} --shell /bin/bash --create-home clawdbot
+# Create clawdbot user for running the application
+# The node:22-bookworm-slim base image has a 'node' user with UID/GID 1000.
+# We rename it to 'clawdbot' for clarity and create a proper home directory.
+RUN usermod -l clawdbot -d /home/clawdbot -m node \
+    && groupmod -n clawdbot node \
+    && mkdir -p /home/clawdbot \
+    && chown -R clawdbot:clawdbot /home/clawdbot
 
 # Install system dependencies
 # - Build essentials: git, curl, ca-certificates, wget
