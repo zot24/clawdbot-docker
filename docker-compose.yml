@@ -6,9 +6,9 @@ services:
       - "18790:18790"   # Bridge (mobile nodes)
     volumes:
       # Mount config directory - edit config/clawdbot.json without rebuilding
-      - ./config:/root/.clawdbot
+      - ./config:/home/clawdbot/.clawdbot
       # Persist workspace data (memory, skills, WhatsApp credentials)
-      - ./workspace:/root/clawd
+      - ./workspace:/home/clawdbot/clawd
     environment:
       # LLM Provider (at least one required)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}

@@ -25,8 +25,8 @@ docker run -d \
   -p 18789:18789 \
   -e ANTHROPIC_API_KEY=your-key \
   -e TELEGRAM_BOT_TOKEN=your-bot-token \
-  -v clawdbot-data:/root/.clawdbot \
-  -v clawdbot-workspace:/root/clawd \
+  -v clawdbot-data:/home/clawdbot/.clawdbot \
+  -v clawdbot-workspace:/home/clawdbot/clawd \
   ghcr.io/zot24/clawdbot-docker:latest
 ```
 
@@ -127,8 +127,8 @@ The image auto-selects a model based on available API keys. Override with `CLAWD
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAWDBOT_DATA_DIR` | `/root/.clawdbot` | Config and credentials |
-| `CLAWDBOT_WORKSPACE` | `/root/clawd` | Workspace, memory, skills |
+| `CLAWDBOT_DATA_DIR` | `/home/clawdbot/.clawdbot` | Config and credentials |
+| `CLAWDBOT_WORKSPACE` | `/home/clawdbot/clawd` | Workspace, memory, skills |
 
 ## Ports
 
@@ -137,8 +137,8 @@ The image auto-selects a model based on available API keys. Override with `CLAWD
 
 ## Volumes
 
-- `/root/.clawdbot`: Configuration and credentials
-- `/root/clawd`: Workspace, memory, and skills
+- `/home/clawdbot/.clawdbot`: Configuration and credentials
+- `/home/clawdbot/clawd`: Workspace, memory, and skills
 
 ## Channel Setup
 
@@ -182,6 +182,8 @@ The image auto-selects a model based on available API keys. Override with `CLAWD
 
 ## Using Local Models (Ollama)
 
+### On Host Machine
+
 To use Ollama running on your host machine:
 
 ```bash
@@ -190,10 +192,67 @@ docker run -d \
   -e OPENCODE_BASE_URL=http://host.docker.internal:11434/v1 \
   -e OPENCODE_MODEL=llama3.1 \
   -e TELEGRAM_BOT_TOKEN=your-token \
-  -v clawdbot-data:/root/.clawdbot \
-  -v clawdbot-workspace:/root/clawd \
+  -v clawdbot-data:/home/clawdbot/.clawdbot \
+  -v clawdbot-workspace:/home/clawdbot/clawd \
   ghcr.io/zot24/clawdbot-docker:latest
 ```
+
+### On Umbrel (Ollama in Another Container)
+
+When running both Clawdbot and Ollama as Umbrel apps, they communicate via Docker's internal network.
+
+**1. Find the Ollama container name:**
+
+```bash
+docker ps | grep ollama
+```
+
+Look for something like `ollama_server_1` or `ollama_web_1`.
+
+**2. Find the Umbrel network:**
+
+```bash
+docker network ls | grep umbrel
+```
+
+**3. Get Ollama's network details:**
+
+```bash
+docker inspect <ollama-container-name> | grep -A5 Networks
+```
+
+**4. Configure Clawdbot:**
+
+Set these environment variables in your Clawdbot configuration:
+
+```bash
+OPENCODE_BASE_URL=http://<ollama-container-name>:11434/v1
+OPENCODE_MODEL=llama3.1
+```
+
+Replace `<ollama-container-name>` with the actual container name from step 1 (e.g., `ollama_server_1`).
+
+**5. Ensure both containers are on the same network:**
+
+If Clawdbot can't reach Ollama, connect it to Umbrel's network:
+
+```bash
+docker network connect <umbrel-network> <clawdbot-container>
+```
+
+**Tip:** You can also use Ollama's internal IP address instead of the container name if DNS resolution doesn't work.
+
+## Security
+
+This image runs as a dedicated non-root user (`clawdbot`, UID 1000) for enhanced security:
+
+- **Principle of Least Privilege**: The container process has only the permissions it needs, not full root access
+- **Container Escape Mitigation**: If an attacker exploits a vulnerability in the application, they gain limited user privileges rather than root
+- **Host System Protection**: Volume mounts and any potential breakouts are constrained to non-root permissions
+- **Compliance**: Many security frameworks (CIS Docker Benchmark, PCI-DSS) require or recommend non-root containers
+- **Defense in Depth**: Adds another security layer on top of container isolation
+
+The container uses UID/GID 1000, which matches the default user on most Linux systems, making volume permission management straightforward.
 
 ## Features
 

@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
-CONFIG_DIR="${CLAWDBOT_DATA_DIR:-/root/.clawdbot}"
+# Default paths use clawdbot user's home directory for security
+# The container runs as non-root 'clawdbot' user (UID 1000)
+CONFIG_DIR="${CLAWDBOT_DATA_DIR:-/home/clawdbot/.clawdbot}"
 CONFIG_FILE="${CONFIG_DIR}/clawdbot.json"
-WORKSPACE="${CLAWDBOT_WORKSPACE:-/root/clawd}"
+WORKSPACE="${CLAWDBOT_WORKSPACE:-/home/clawdbot/clawd}"
 TOKEN_FILE="${CONFIG_DIR}/.gateway_token"
 
 # Get or generate gateway token with persistence
