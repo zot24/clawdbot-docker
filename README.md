@@ -4,6 +4,8 @@ Docker image for [OpenClaw](https://github.com/openclaw/openclaw) - your persona
 
 Built for use with [Umbrel](https://umbrel.com) and other self-hosted platforms.
 
+**[View available tags](https://github.com/zot24/openclaw-docker/pkgs/container/openclaw-docker)** - follows [OpenClaw's release cycle](https://github.com/openclaw/openclaw/releases) using calendar versioning (e.g., `v2026.1.30`).
+
 ## Quick Start
 
 ### Using Docker Compose (Recommended)

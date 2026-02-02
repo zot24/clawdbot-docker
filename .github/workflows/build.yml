@@ -100,8 +100,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=
-            type=ref,event=tag
-            type=raw,value=openclaw-${{ steps.version.outputs.openclaw_version }},enable=${{ steps.version.outputs.openclaw_version != 'main' }}
+            type=raw,value=${{ steps.version.outputs.openclaw_version }},enable=${{ steps.version.outputs.openclaw_version != 'main' }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
