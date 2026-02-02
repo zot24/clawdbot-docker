@@ -6,6 +6,15 @@ on:
     paths:
       - 'Dockerfile.base'
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+        type: choice
+        options:
+          - linux/amd64
+          - linux/amd64,linux/arm64
 
 env:
   REGISTRY: ghcr.io
@@ -30,7 +39,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Determine platforms
+        id: platforms
+        run: |
+          # Manual triggers can choose, auto-triggers build amd64 only for speed
+          if [[ -n "${{ inputs.platforms }}" ]]; then
+            PLATFORMS="${{ inputs.platforms }}"
+          else
+            PLATFORMS="linux/amd64"
+          fi
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "Building for platforms: $PLATFORMS"
+
       - name: Set up QEMU
+        if: contains(steps.platforms.outputs.platforms, 'arm64')
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -57,7 +79,7 @@ jobs:
         with:
           context: .
           file: Dockerfile.base
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ steps.platforms.outputs.platforms }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
