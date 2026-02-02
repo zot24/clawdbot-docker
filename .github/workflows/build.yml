@@ -73,7 +73,7 @@ jobs:
           elif [[ -n "${{ inputs.platforms }}" ]]; then
             PLATFORMS="${{ inputs.platforms }}"
           else
-            PLATFORMS="linux/amd64"
+            PLATFORMS="linux/amd64,linux/arm64"
           fi
           echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
           echo "Building for platforms: $PLATFORMS"
