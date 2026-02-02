@@ -2,7 +2,10 @@ name: Build and Push Docker Image
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'entrypoint.sh'
   workflow_dispatch:
     inputs:
       openclaw_version:
@@ -12,7 +15,7 @@ on:
       platforms:
         description: 'Platforms to build'
         required: false
-        default: 'linux/amd64'
+        default: 'linux/amd64,linux/arm64'
         type: choice
         options:
           - linux/amd64
@@ -21,11 +24,8 @@ on:
     inputs:
       openclaw_version:
         description: 'OpenClaw version/branch to build'
-        required: true
+        required: false
         type: string
-  schedule:
-    # Weekly full rebuild (both platforms) to get OpenClaw updates
-    - cron: '0 0 * * 0'
 
 env:
   REGISTRY: ghcr.io
@@ -63,13 +63,18 @@ jobs:
           echo "openclaw_version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building OpenClaw version: $VERSION"
 
+      - name: Read upstream version
+        id: upstream
+        run: |
+          VERSION=$(cat VERSION 2>/dev/null || echo "main")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Upstream version: $VERSION"
+
       - name: Determine platforms
         id: platforms
         run: |
-          # Tags and scheduled builds get both platforms, pushes to main get amd64 only for speed
-          if [[ "${{ github.ref_type }}" == "tag" ]] || [[ "${{ github.event_name }}" == "schedule" ]]; then
-            PLATFORMS="linux/amd64,linux/arm64"
-          elif [[ -n "${{ inputs.platforms }}" ]]; then
+          # Manual dispatch can choose, otherwise build both platforms
+          if [[ -n "${{ inputs.platforms }}" ]]; then
             PLATFORMS="${{ inputs.platforms }}"
           else
             PLATFORMS="linux/amd64,linux/arm64"
@@ -99,7 +104,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=
-            type=raw,value=${{ steps.version.outputs.openclaw_version }},enable=${{ steps.version.outputs.openclaw_version != 'main' }}
+            type=raw,value=${{ steps.upstream.outputs.version }},enable=${{ steps.upstream.outputs.version != 'main' }}
 
       - name: Build and push
         uses: docker/build-push-action@v5

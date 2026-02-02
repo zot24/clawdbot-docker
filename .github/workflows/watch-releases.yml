@@ -40,8 +40,29 @@ jobs:
             echo "version=${{ steps.fetch.outputs.version }}" >> $GITHUB_OUTPUT
           fi
 
-  build:
+  update-version:
     needs: check-release
+    if: needs.check-release.outputs.new_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update VERSION file
+        run: echo "${{ needs.check-release.outputs.version }}" > VERSION
+
+      - name: Commit VERSION file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git diff --cached --quiet || git commit -m "chore: update VERSION to ${{ needs.check-release.outputs.version }}"
+          git push
+
+  build:
+    needs: [check-release, update-version]
     if: needs.check-release.outputs.new_release == 'true'
     uses: ./.github/workflows/build.yml
     with:

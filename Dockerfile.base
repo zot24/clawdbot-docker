@@ -67,6 +67,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" | tar -C /usr/local -xzf -
 ENV PATH="/usr/local/go/bin:/home/openclaw/go/bin:${PATH}"
 ENV GOPATH="/home/openclaw/go"
+ENV HOME="/home/openclaw"
 
 # Install sag (ElevenLabs TTS CLI) - compile from source
 # Requires CGO for audio library (oto)

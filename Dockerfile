@@ -47,6 +47,7 @@ EXPOSE 18789 18790
 
 # Set environment
 ENV NODE_ENV=production
+ENV HOME=/home/openclaw
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
