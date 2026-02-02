@@ -1,22 +1,30 @@
-name: Retag Image
+name: Manage Image Tags
 
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'retag'
+        type: choice
+        options:
+          - retag
+          - delete
       source_tag:
-        description: 'Source tag to copy from'
+        description: 'Source tag (for retag) or tag to delete'
         required: true
         default: 'latest'
       target_tag:
-        description: 'New tag to create'
-        required: true
+        description: 'New tag to create (only for retag)'
+        required: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  retag:
+  manage-tags:
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -35,6 +43,13 @@ jobs:
           curl -sL "https://github.com/google/go-containerregistry/releases/download/${VERSION}/go-containerregistry_Linux_x86_64.tar.gz" | tar -xzf - crane
 
       - name: Retag image
+        if: inputs.action == 'retag'
         run: |
           ./crane tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.source_tag }} ${{ inputs.target_tag }}
           echo "Tagged ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.source_tag }} as ${{ inputs.target_tag }}"
+
+      - name: Delete tag
+        if: inputs.action == 'delete'
+        run: |
+          ./crane delete ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.source_tag }}
+          echo "Deleted tag ${{ inputs.source_tag }}"
