@@ -53,9 +53,7 @@ ENV HOME=/home/openclaw
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:18789/ || exit 1
 
-# Run as non-root user
-# For Umbrel: use "user: 1000:1000" in docker-compose.yml (standard Umbrel pattern)
-USER openclaw
-
+# Start as root - entrypoint fixes volume permissions then drops to openclaw user
+# This is required for Umbrel where Docker creates volume dirs as root
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gateway"]

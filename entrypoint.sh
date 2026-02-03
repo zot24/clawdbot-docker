@@ -1,6 +1,30 @@
 #!/bin/bash
 set -e
 
+# ============================================================================
+# Fix permissions if running as root (Umbrel compatibility)
+# Docker creates volume mount directories as root, so we fix ownership then
+# drop privileges to run the app as non-root
+# ============================================================================
+if [ "$(id -u)" = "0" ]; then
+    CONFIG_DIR="${OPENCLAW_DATA_DIR:-/home/openclaw/.openclaw}"
+    WORKSPACE="${OPENCLAW_WORKSPACE:-/home/openclaw/clawd}"
+
+    echo "Running as root, fixing volume permissions..."
+
+    # Create and fix ownership of mounted volumes
+    mkdir -p "${CONFIG_DIR}" "${WORKSPACE}" "${WORKSPACE}/memory" "${WORKSPACE}/skills"
+    chown -R 1000:1000 "${CONFIG_DIR}" "${WORKSPACE}" /home/openclaw 2>/dev/null || true
+
+    # Re-exec as openclaw user
+    echo "Dropping privileges to openclaw user..."
+    exec su openclaw -s /bin/bash -c "exec $0 $*"
+fi
+
+# ============================================================================
+# Normal startup (running as openclaw user)
+# ============================================================================
+
 # Force HOME for Umbrel compatibility (Umbrel may override HOME)
 export HOME="${HOME:-/home/openclaw}"
 
