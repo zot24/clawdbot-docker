@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Force HOME for Umbrel compatibility (Umbrel may override HOME)
+export HOME="${HOME:-/home/openclaw}"
+
+# Ensure npm/node uses correct cache paths (not /root/.npm)
+export npm_config_cache="${HOME}/.npm"
+export npm_config_devdir="${HOME}/.node-gyp"
+
 # Default paths use openclaw user's home directory for security
 # The container runs as non-root 'openclaw' user (UID 1000)
 CONFIG_DIR="${OPENCLAW_DATA_DIR:-/home/openclaw/.openclaw}"
